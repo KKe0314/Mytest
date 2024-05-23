@@ -397,7 +397,24 @@ if __name__ == "__main__":
             if global_step < stage_progress_4[i] - 1:
                 stage_progress = i
                 break 
-        
+                
+        # ----------------- Single P-frame --------------------
+        # Stage 0: mv_dist                                      < 1
+        # Stage 1: mv_dist & mv_rate                            < 4
+        # Stage 2: x_dist                                       < 7
+        # Stage 3: x dist & x_rate                              < 10
+        # Stage 4: x dist & x_rate & mv_rate                    < 16
+
+        # ----------------- Dual P-frame --------------------
+        # Stage 5: x dist & x_rate & mv_rate                    < 21
+
+        # ----------------- Four P-frame --------------------
+        # Stage 6: x dist & x_rate & mv_rate                    < 24
+        # Stage 7: x dist & x_rate & mv_rate (1e-5)             < 25
+        # Stage 8: x dist & x_rate & mv_rate (5e-5) (avg_loss)  < 27
+        # Stage 9: x dist & x_rate & mv_rate (1e-5) (avg_loss)  < 30
+
+    
         
         def Change_optim(stage):
             def freezeMV(flag):
