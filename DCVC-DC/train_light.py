@@ -97,24 +97,32 @@ def get_stage_config(current_epoch):
         config["mode"] = "all"
     return config
 
+    # 6.training part
+    if stage < 2:
+        config["part"] = "only_mv"
+    elif stage<4:
+        config["part"] = "freeze_mv"
+    else:
+        config["part"] = "all"
+
 
 class DCLightning(LightningModule):
     def __init__(
         self, kwargs
     ):
         # ----------------- Single P-frame --------------------
-        # Stage 0: mv_dist                                      < 1
-        # Stage 1: mv_dist & mv_rate                            < 4
-        # Stage 2: x_dist                                       < 7
-        # Stage 3: x dist & x_rate                              < 10
-        # Stage 4: x dist & x_rate & mv_rate                    < 16
+        # Stage 0: mv_dist                                      < 1        only mv
+        # Stage 1: mv_dist & mv_rate                            < 4        only mv
+        # Stage 2: x_dist                                       < 7        freeze mv
+        # Stage 3: x dist & x_rate                              < 10       freeze mv
+        # Stage 4: x dist & x_rate & mv_rate                    < 16       all 
 
         # ----------------- Dual P-frame --------------------
-        # Stage 5: x dist & x_rate & mv_rate                    < 21
+        # Stage 5: x dist & x_rate & mv_rate                    < 21       all
 
         # ----------------- Four P-frame --------------------
-        # Stage 6: x dist & x_rate & mv_rate                    < 24
-        # Stage 7: x dist & x_rate & mv_rate (1e-5)             < 25
+        # Stage 6: x dist & x_rate & mv_rate                    < 24       all
+        # Stage 7: x dist & x_rate & mv_rate (1e-5)             < 25        
         # Stage 8: x dist & x_rate & mv_rate (5e-5) (avg_loss)  < 27
         # Stage 9: x dist & x_rate & mv_rate (1e-5) (avg_loss)  < 30
 
@@ -178,6 +186,40 @@ class DCLightning(LightningModule):
             ref_frame, y_string, z_string, mv_y_string, mv_z_string, height, width
         )
 
+    def on_train_epoch_start(self, trainer, pl_module):  
+
+        
+        # 根据epoch决定冻结或解冻mv层  
+        if self.epoch < 2:  
+            # 只训练mv层
+            for param in pl_module.parameters():
+                param.requires_grad = False
+            self.freezeMV(pl_module, True)  
+            
+        elif self.epoch < 4:  
+            # 冻结mv层，训练其他部分
+            for param in pl_module.parameters():
+                param.requires_grad = True
+            self.freezeMV(pl_module, False)  
+        else:  
+            # 全部参数一起训练  
+            #self.unfreeze_all(pl_module)  
+            for param in pl_module.parameters():
+                param.requires_grad = True
+        self.epoch += 1 
+
+    
+    def freezeMV(net,flag):
+        for p in net.module.opticFlow.parameters():
+            p.requires_grad = flag
+        for p in net.module.mvEncoder.parameters():
+            p.requires_grad = flag
+        for p in net.module.mvDecoder_part1.parameters():
+            p.requires_grad = flag
+        for p in net.module.mvDecoder_part2.parameters():
+            p.requires_grad = flag
+
+    
     def training_step(self, batch, batch_idx):
         config = get_stage_config(self.current_epoch)
         lr = config["lr"]
@@ -185,6 +227,7 @@ class DCLightning(LightningModule):
         objective = config["loss"]
         use_avg_loss = config["avg_loss"]
         mode = config["mode"]
+        part = config["part"]
         
         self.use_weighted_loss = True if nframes >= 5 else False
         
