@@ -212,12 +212,12 @@ class DCLightning(LightningModule):
     def freezeMV(net,flag):
         for p in net.module.opticFlow.parameters():
             p.requires_grad = flag
-        for p in net.module.mvEncoder.parameters():
+        for p in net.module.mv_encoder.parameters():
             p.requires_grad = flag
-        for p in net.module.mvDecoder_part1.parameters():
+        for p in net.module.mv_decoder.parameters():
             p.requires_grad = flag
-        for p in net.module.mvDecoder_part2.parameters():
-            p.requires_grad = flag
+        #for p in net.module.mvDecoder_part2.parameters():
+           #p.requires_grad = flag
 
     
     def training_step(self, batch, batch_idx):
